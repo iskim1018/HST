@@ -7,6 +7,8 @@ from sklearn.cluster import KMeans
 if TYPE_CHECKING:
     import HST
 
+terse_mode = False
+
 
 class HS:
     def __init__(self, hst: HST, hs_parent: Union[HS, None], children: list):
@@ -32,7 +34,7 @@ class HS:
         if len(self.children) >= self.hst.n_max_child:
             self.children.append(vec)
             vecs = self._get_child_centroids()
-            kmeans = KMeans(n_clusters=2)
+            kmeans = KMeans(n_clusters=2, n_init=10)
             kmeans.fit(vecs)
 
             children1 = [child for child, label in zip(self.children, kmeans.labels_) if label == 0]
@@ -65,12 +67,13 @@ class HS:
         self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
 
     def show(self, indent: str):
-        print(f"{indent}r:{self.radius:.3f}")
+        print(f"{indent}{self.__repr__()}")
         for child in self.children:
             if isinstance(child, HS):
                 child.show(indent + " ")
             else:
-                print(indent, child)
+                if not terse_mode:
+                    print(indent, child)
 
     def __repr__(self):
         return f"r:{self.radius:.3f}#{len(self.children)}"
