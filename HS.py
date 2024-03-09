@@ -48,7 +48,7 @@ class HS:
             dist = np.linalg.norm(self.centroid - vec)
             if dist < self.radius:
                 vecs = self._get_child_centroids()
-                idx = np.argmin(np.linalg.norm(vecs - vec))
+                idx = np.argmin(np.linalg.norm(vecs - vec, axis=1))
                 child = self.children[idx]
                 if isinstance(child, HS):
                     hs_new = child.add(vec)

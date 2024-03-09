@@ -70,7 +70,7 @@ def _parse_args():
 
 def run_hst_test():
     if seed:
-        np.random.seed = seed
+        np.random.seed(seed)
     hst = HST(vec_dim, n_max_child)
     for i in range(n_vectors):
         vec = np.random.uniform(vec_range[0], vec_range[1], vec_dim)
