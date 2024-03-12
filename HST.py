@@ -1,4 +1,6 @@
+from __future__ import annotations
 import numpy as np
+import pickle
 
 from HS import HS
 
@@ -22,6 +24,15 @@ class HST:
 
     def show(self):
         self.RHS.show("")
+
+    @staticmethod
+    def load(path) -> HST:
+        with open(path, 'rb') as file:
+            return pickle.load(file)
+
+    def save(self, path):
+        with open(path, 'wb') as file:
+            pickle.dump(self, file)
 
     def __repr__(self):
         return "HST"
