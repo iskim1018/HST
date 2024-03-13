@@ -16,11 +16,7 @@ class HST:
         if self.RHS is None:
             self.RHS = HS(self, None, [vec])
         else:
-            hs_new = self.RHS.add(vec)
-
-            if hs_new is not None:
-                hs_parent = HS(self, None, [self.RHS, hs_new])
-                self.RHS = hs_parent
+            self.RHS.add(vec)
 
     def show(self):
         self.RHS.show("")

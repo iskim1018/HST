@@ -30,35 +30,57 @@ class HS:
         return list(map(lambda child: child.radius if isinstance(child, HS) else 0,
                         self.children))
 
-    def add(self, vec: np.ndarray) -> Union[HS, None]:
+    def _get_child_new_centroids(self, vec):
+        return list(map(lambda child: child._get_new_centroid(vec) if isinstance(child, HS) else
+                        np.mean([child, vec], axis=0), self.children))
+
+    def _get_new_centroid(self, vec):
+        vecs = self._get_child_centroids()
+        vecs.append(vec)
+        return np.mean(vecs, axis=0)
+
+    def _get_nearest_child_idx(self, vec: np.ndarray):
+        vecs = self._get_child_new_centroids(vec)
+        return np.argmin(np.linalg.norm(vecs - vec, axis=1))
+
+    def insert(self, vec: np.ndarray) -> Union[HS, None]:
         if len(self.children) >= self.hst.n_max_child:
-            self.children.append(vec)
-            vecs = self._get_child_centroids()
-            kmeans = KMeans(n_clusters=2, n_init=10)
-            kmeans.fit(vecs)
-
-            children1 = [child for child, label in zip(self.children, kmeans.labels_) if label == 0]
-            children2 = [child for child, label in zip(self.children, kmeans.labels_) if label == 1]
-            hs_new = HS(self.hst, None, children1)
-            self.children = children2
-            self.setup()
-
-            return hs_new
+            idx = self._get_nearest_child_idx(vec)
+            child = self.children[idx]
+            if isinstance(child, HS):
+                hs_new = child.add(vec)
+                if hs_new is not None:
+                    self.children[idx] = hs_new
+                    self.setup()
+                    return self
+                return None
+            else:
+                hs_new = HS(self.hst, self, [child, vec])
+                self.children[idx] = hs_new
+                self.setup()
+                return self
         else:
-            dist = np.linalg.norm(self.centroid - vec)
-            if dist < self.radius:
-                vecs = self._get_child_centroids()
-                idx = np.argmin(np.linalg.norm(vecs - vec, axis=1))
-                child = self.children[idx]
-                if isinstance(child, HS):
-                    hs_new = child.add(vec)
-                    if hs_new is not None:
-                        self.children.append(hs_new)
-                        self.setup()
-                    return None
             self.children.append(vec)
             self.setup()
-            return None
+            return self
+
+    def add(self, vec: np.ndarray) -> Union[HS, None]:
+        dist = np.linalg.norm(self.centroid - vec)
+        if dist < self.radius:
+            return self.insert(vec)
+
+        if len(self.children) >= self.hst.n_max_child:
+            idx = self._get_nearest_child_idx(vec)
+            child = self.children[idx]
+            hs_new = HS(self.hst, self, [vec, child])
+            if isinstance(child, HS):
+                child.hs_parent = hs_new
+            self.children[idx] = hs_new
+            self.setup()
+        else:
+            self.children.append(vec)
+            self.setup()
+        return self
 
     def setup(self):
         centroids_child = self._get_child_centroids()
