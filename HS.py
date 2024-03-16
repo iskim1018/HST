@@ -82,6 +82,41 @@ class HS:
             self.setup()
         return self
 
+    def search(self, vec: np.ndarray):
+        idx = self._get_nearest_child_idx(vec)
+        child = self.children[idx]
+        if isinstance(child, HS):
+            return child.search(vec)
+        return child
+
+    def search_dfs(self, vec: np.ndarray):
+        vec_min = None
+        dist_min = 0
+        for child in self.children:
+            if isinstance(child, HS):
+                vec_min_hs, dist_hs = child.search_dfs(vec)
+                if vec_min is None or dist_hs < dist_min:
+                    dist_min = dist_hs
+                    vec_min = vec_min_hs
+            else:
+                dist = np.linalg.norm(child - vec)
+                if dist < dist_min:
+                    vec_min = child
+                    dist_min = dist
+        return vec_min, dist_min
+
+    def search_n_closer_vecs(self, vec: np.ndarray, dist: int):
+        n_closer_vecs = 0
+        for child in self.children:
+            if isinstance(child, HS):
+                n_closer_vecs_hs = child.search_n_closer_vecs(vec, dist)
+                n_closer_vecs += n_closer_vecs_hs
+            else:
+                dist_child = np.linalg.norm(child - vec)
+                if dist_child < dist:
+                    n_closer_vecs += 1
+        return n_closer_vecs
+
     def setup(self):
         centroids_child = self._get_child_centroids()
         radii_child = self._get_child_radii()
