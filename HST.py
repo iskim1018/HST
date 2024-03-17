@@ -22,17 +22,24 @@ class HST:
     def get_dist(vec1: np.ndarray, vec2: np.ndarray):
         return np.linalg.norm(vec1 - vec2)
 
-    def search(self, vec: np.ndarray):
+    def search_pn(self, vec: np.ndarray):
         return self.RHS.search(vec)
 
     def search_dfs(self, vec: np.ndarray):
         return self.RHS.search_dfs(vec)
 
-    def get_search_rank(self, vec: np.ndarray):
-        vec_searched = self.search(vec)
-        dist_searched = self.get_dist(vec, vec_searched)
-        n_closer_vecs = self.RHS.search_n_closer_vecs(vec, dist_searched)
+    def get_pn_dist_rank(self, vec: np.ndarray, dist_pn: float):
+        n_closer_vecs = self.RHS.search_n_closer_vecs(vec, dist_pn)
         return n_closer_vecs + 1
+
+    def get_rank_vec_dist(self, vec: np.ndarray, rank: int):
+        return self.RHS.get_rank_vec_dist(vec, rank)
+
+    def get_nn_vec_dist(self, vec: np.ndarray):
+        return self.RHS.get_rank_vec_dist(vec, 1)
+
+    def get_pn_vec(self, vec: np.ndarray, dist_pn: float):
+        return self.RHS.search_pn(vec, dist_pn)
 
     def show(self):
         self.RHS.show("")

@@ -14,6 +14,9 @@ vec_dim: int = 8
 vec_range = (-1, 1)
 n_vectors = 100
 query_mode = False
+query_dist = None
+query_rank = None
+query_pn_dist = None
 path_save = None
 path_load = None
 seed = None
@@ -24,7 +27,7 @@ def _usage_hst_test():
 Usage: HST_test.py [<options>]
    <options>
    -h: help(this message)
-   -q: query mode
+   -q <query type>: rank:<rank>, dist:<dist>, pn:<dist_threshold>
    -m <max child in HS>
    -d <vector dimension>: vector dimension
    -n <# of vectors>: default 100
@@ -44,11 +47,22 @@ logging.basicConfig(level=logging.DEBUG,  # 로그 레벨 설정
 logger = logging.getLogger(__name__)
 
 
+def _parse_query_str(a):
+    global query_dist, query_rank, query_pn_dist
+
+    if a[0:5] == "rank:":
+        query_rank = int(a[5:])
+    elif a[0:5] == "dist:":
+        query_dist = float(a[5:])
+    elif a[0:3] == "pn:":
+        query_pn_dist = float(a[3:])
+
+
 def _parse_args():
     global n_max_child, vec_dim, n_vectors, vec_range, query_mode, path_load, path_save, seed
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "m:d:n:qr:s:l:S:th")
+        opts, args = getopt.getopt(sys.argv[1:], "m:d:n:q:r:s:l:S:th")
     except getopt.GetoptError:
         logger.error("invalid option")
         _usage_hst_test()
@@ -65,6 +79,7 @@ def _parse_args():
             n_vectors = int(a)
         elif o == '-q':
             query_mode = True
+            _parse_query_str(a)
         elif o == '-s':
             path_save = a
         elif o == '-l':
@@ -81,6 +96,23 @@ def _parse_args():
                 exit(2)
 
 
+def run_query(hst, vec):
+    if query_rank:
+        dist = hst.get_rank_vec_dist(vec, query_rank)
+        print(f"rank {query_rank}: {dist:.4f}")
+    elif query_dist:
+        dist = hst.get_nn_vec_dist(vec)
+        print(f"nn vec: {dist:.4f}")
+    elif query_pn_dist:
+        vec_pn = hst.get_pn_vec(vec, query_pn_dist)
+        if vec_pn is None:
+            print("PN vector not found")
+        else:
+            dist_pn = hst.get_dist(vec, vec_pn)
+            rank = hst.get_pn_dist_rank(vec, dist_pn)
+            print(f"PN vec: rank: {rank}, dist:{dist_pn:.4f}")
+
+
 def run_hst_test():
     if seed:
         np.random.seed(seed)
@@ -91,8 +123,7 @@ def run_hst_test():
     for i in range(n_vectors):
         vec = np.random.uniform(vec_range[0], vec_range[1], vec_dim)
         if query_mode:
-            rank = hst.get_search_rank(vec)
-            print(f"rank: {rank}")
+            run_query(hst, vec)
         else:
             hst.add(vec)
     if not query_mode:

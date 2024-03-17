@@ -43,6 +43,20 @@ class HS:
         vecs = self._get_child_new_centroids(vec)
         return np.argmin(np.linalg.norm(vecs - vec, axis=1))
 
+    def _get_candidate_children(self, vec: np.ndarray, dist_pn: float):
+        candidates = []
+        vecs = self._get_child_centroids()
+        dists = np.linalg.norm(vecs - vec, axis=1)
+        for child, dist_centroid in zip(self.children, dists):
+            if isinstance(child, HS):
+                if child.radius >= dist_centroid and child.radius - dist_centroid < dist_pn:
+                    candidates.append((child, dist_centroid))
+            else:
+                if dist_centroid < dist_pn:
+                    candidates.append((child, dist_centroid / 2))
+        candidates = sorted(candidates, key=lambda x: x[1])
+        return [x[0] for x in candidates]
+
     def insert(self, vec: np.ndarray) -> Union[HS, None]:
         if len(self.children) >= self.hst.n_max_child:
             idx = self._get_nearest_child_idx(vec)
@@ -82,12 +96,16 @@ class HS:
             self.setup()
         return self
 
-    def search(self, vec: np.ndarray):
-        idx = self._get_nearest_child_idx(vec)
-        child = self.children[idx]
-        if isinstance(child, HS):
-            return child.search(vec)
-        return child
+    def search_pn(self, vec: np.ndarray, dist_pn: float):
+        candidates = self._get_candidate_children(vec, dist_pn)
+        for child in candidates:
+            if isinstance(child, HS):
+                vec_pn = child.search_pn(vec, dist_pn)
+                if vec_pn is not None:
+                    return vec_pn
+            else:
+                return child
+        return None
 
     def search_dfs(self, vec: np.ndarray):
         vec_min = None
@@ -116,6 +134,30 @@ class HS:
                 if dist_child < dist:
                     n_closer_vecs += 1
         return n_closer_vecs
+
+    def _search_top_k_vecs(self, vec: np.ndarray, top_k: int, vec_dists: list):
+        for child in self.children:
+            if isinstance(child, HS):
+                child._search_top_k_vecs(vec, top_k, vec_dists)
+            else:
+                dist_child = np.linalg.norm(child - vec)
+                rank = 0
+                inserted = False
+                for vec_dist in vec_dists:
+                    if dist_child < vec_dist[1]:
+                        vec_dists.insert(rank, (child, dist_child))
+                        inserted = True
+                        break
+                    rank += 1
+                if not inserted:
+                    vec_dists.append((child, dist_child))
+                if len(vec_dists) > top_k:
+                    del vec_dists[top_k:]
+
+    def get_rank_vec_dist(self, vec: np.ndarray, rank: int):
+        vec_dists = []
+        self._search_top_k_vecs(vec, rank, vec_dists)
+        return vec_dists[-1][1]
 
     def setup(self):
         centroids_child = self._get_child_centroids()
