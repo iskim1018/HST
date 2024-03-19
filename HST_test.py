@@ -125,7 +125,7 @@ def run_hst_test():
         if query_mode:
             run_query(hst, vec)
         else:
-            hst.add(vec)
+            hst.insert(vec)
     if not query_mode:
         hst.show()
     if path_save:

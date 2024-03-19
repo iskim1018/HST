@@ -12,11 +12,11 @@ class HST:
         self.RHS = None
         pass
 
-    def add(self, vec: np.ndarray):
+    def insert(self, vec: np.ndarray):
         if self.RHS is None:
             self.RHS = HS(self, None, [vec])
         else:
-            self.RHS.add(vec)
+            self.RHS.insert(vec)
 
     @staticmethod
     def get_dist(vec1: np.ndarray, vec2: np.ndarray):

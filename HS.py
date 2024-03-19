@@ -49,7 +49,7 @@ class HS:
         dists = np.linalg.norm(vecs - vec, axis=1)
         for child, dist_centroid in zip(self.children, dists):
             if isinstance(child, HS):
-                if child.radius >= dist_centroid and child.radius - dist_centroid < dist_pn:
+                if child.radius >= dist_centroid or dist_centroid - child.radius < dist_pn:
                     candidates.append((child, dist_centroid))
             else:
                 if dist_centroid < dist_pn:
@@ -57,36 +57,29 @@ class HS:
         candidates = sorted(candidates, key=lambda x: x[1])
         return [x[0] for x in candidates]
 
-    def insert(self, vec: np.ndarray) -> Union[HS, None]:
+    def add(self, vec: np.ndarray) -> Union[HS, None]:
         if len(self.children) >= self.hst.n_max_child:
             idx = self._get_nearest_child_idx(vec)
             child = self.children[idx]
             if isinstance(child, HS):
-                hs_new = child.add(vec)
-                if hs_new is not None:
-                    self.children[idx] = hs_new
-                    self.setup()
-                    return self
-                return None
+                child.insert(vec)
             else:
                 hs_new = HS(self.hst, self, [child, vec])
                 self.children[idx] = hs_new
-                self.setup()
-                return self
         else:
             self.children.append(vec)
-            self.setup()
-            return self
+        self._setup_radius()
 
-    def add(self, vec: np.ndarray) -> Union[HS, None]:
+    def insert(self, vec: np.ndarray):
         dist = np.linalg.norm(self.centroid - vec)
         if dist < self.radius:
-            return self.insert(vec)
+            self.add(vec)
+            return
 
         if len(self.children) >= self.hst.n_max_child:
             idx = self._get_nearest_child_idx(vec)
             child = self.children[idx]
-            hs_new = HS(self.hst, self, [vec, child])
+            hs_new = HS(self.hst, self, [child, vec])
             if isinstance(child, HS):
                 child.hs_parent = hs_new
             self.children[idx] = hs_new
@@ -94,7 +87,45 @@ class HS:
         else:
             self.children.append(vec)
             self.setup()
-        return self
+
+    def remove(self, child_removing):
+        self.children.remove(child_removing)
+        self._setup_radius()
+
+    def _get_nearest_candidate_hs(self, vec: np.ndarray):
+        vecs = self._get_child_new_centroids(vec)
+        dists = np.linalg.norm(vecs - vec, axis=1)
+        for idx, dist in sorted(enumerate(dists), key=lambda x: x[1]):
+            child = self.children[idx]
+            if isinstance(child, HS) and child.radius <= dist:
+                return child
+        return None
+
+    def reparent(self, child_from, child_grand):
+        vec = child_grand.centroid if isinstance(child_grand, HS) else child_grand
+        child_nn = self._get_nearest_candidate_hs(vec)
+        if child_nn is None or child_from == child_nn:
+            return
+        child_from.remove(child_grand)
+        child_nn.add(child_grand)
+
+    def try_to_reparent(self):
+        if self.hs_parent is None:
+            return
+        for child in self.children:
+            self.hs_parent.reparent(self, child)
+
+    def _setup_radius(self):
+        centroids_child = self._get_child_centroids()
+        radii_child = self._get_child_radii()
+        self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
+
+    def setup(self):
+        centroids_child = self._get_child_centroids()
+        radii_child = self._get_child_radii()
+        self.centroid = np.mean(centroids_child, axis=0)
+        self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
+        self.try_to_reparent()
 
     def search_pn(self, vec: np.ndarray, dist_pn: float):
         candidates = self._get_candidate_children(vec, dist_pn)
@@ -158,12 +189,6 @@ class HS:
         vec_dists = []
         self._search_top_k_vecs(vec, rank, vec_dists)
         return vec_dists[-1][1]
-
-    def setup(self):
-        centroids_child = self._get_child_centroids()
-        radii_child = self._get_child_radii()
-        self.centroid = np.mean(centroids_child, axis=0)
-        self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
 
     def show(self, indent: str):
         print(f"{indent}{self.__repr__()}")
