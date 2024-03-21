@@ -5,6 +5,7 @@ import pickle
 import vector
 from HS import HS
 from vector import Vector
+from hst_stat import HSTStat
 
 
 class HST:
@@ -52,8 +53,8 @@ class HST:
     def get_nn_vecs(self, v: np.ndarray, dist_nn: float):
         return self.RHS.search_vecs_nn(v, dist_nn)
 
-    def get_pn_vec(self, v: np.ndarray, dist_pn: float):
-        return self.RHS.search_pn(v, dist_pn)
+    def get_pn_vec(self, v: np.ndarray, dist_pn: float, stat: HSTStat = None):
+        return self.RHS.search_pn(v, dist_pn, stat)
 
     def get_summary(self):
         return self.RHS.get_summary()

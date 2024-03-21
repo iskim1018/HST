@@ -8,7 +8,7 @@ import numpy as np
 import HS
 import vector
 from HST import HST
-
+from hst_stat import HSTStat
 
 n_max_child: int = 5
 vec_dim: int = 8
@@ -29,7 +29,7 @@ Usage: HST_test.py [<options>]
    <options>
    -h: help(this message)
    -q <query type>: rank:<rank>, nn:<dist>, pn:<dist_threshold>
-   -m <max child in HS>
+   -c <max child in HS>
    -d <vector dimension>: vector dimension
    -n <# of vectors>: default 100
    -r <vector range format>: eg: -1,1 default (-1, 1)
@@ -64,7 +64,7 @@ def _parse_args():
     global n_max_child, vec_dim, n_vectors, vec_range, query_mode, path_load, path_save, seed, verbose
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "m:d:n:q:r:s:l:S:v:h")
+        opts, args = getopt.getopt(sys.argv[1:], "c:d:n:q:r:s:l:S:v:h")
     except getopt.GetoptError:
         logger.error("invalid option")
         _usage_hst_test()
@@ -73,7 +73,7 @@ def _parse_args():
         if o == '-h':
             _usage_hst_test()
             exit(0)
-        elif o == '-m':
+        elif o == '-c':
             n_max_child = int(a)
         elif o == '-d':
             vec_dim = int(a)
@@ -112,13 +112,19 @@ def run_query(hst, v: np.ndarray):
             dist_nn = hst.get_dist(v, vec_nn.v)
             print(f"NN vec: vid: {vec_nn.vid}, dist: {dist_nn:.4f}")
     elif query_pn_dist:
-        vec_pn = hst.get_pn_vec(v, query_pn_dist)
+        stat = HSTStat()
+        vec_pn = hst.get_pn_vec(v, query_pn_dist, stat)
         if vec_pn is None:
             print("PN vector not found")
         else:
             dist_pn = hst.get_dist(v, vec_pn.v)
             rank = hst.get_dist_rank(v, dist_pn)
             print(f"PN vec: vid: {vec_pn.vid}, rank: {rank}, dist: {dist_pn:.4f}")
+        print(f"# of walks: {stat.n_walks}, # of backtracks: {stat.n_backtracks}")
+        print(f"# of candidates per level: ", end='')
+        for n in stat.n_candidates_per_level:
+            print(f"{n} ", end='')
+        print()
 
 
 def show_summary(hst: HST):
@@ -130,7 +136,9 @@ def run_hst_test():
     if seed:
         np.random.seed(seed)
     if path_load:
+        global vec_dim
         hst = HST.load(path_load)
+        vec_dim = hst.n_dim
     else:
         hst = HST(vec_dim, n_max_child)
     for i in range(n_vectors):

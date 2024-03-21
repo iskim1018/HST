@@ -4,6 +4,7 @@ from typing import List, Union, TYPE_CHECKING
 
 from hsable import HSable
 from vector import Vector
+from hst_stat import HSTStat
 
 if TYPE_CHECKING:
     import HST
@@ -24,6 +25,11 @@ class HS(HSable):
             if isinstance(child, HS):
                 child.hs_parent = self
         self.setup()
+
+    def get_level(self):
+        if self.hs_parent is None:
+            return 1
+        return self.hs_parent.get_level() + 1
 
     def _get_child_centroids(self):
         return list(map(lambda child: child.get_centroid(), self.children))
@@ -133,13 +139,19 @@ class HS(HSable):
         self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
         self.try_to_reparent()
 
-    def search_pn(self, vec: np.ndarray, dist_pn: float):
+    def search_pn(self, vec: np.ndarray, dist_pn: float, stat: HSTStat = None):
+        if stat:
+            stat.n_walks += 1
         candidates = self._get_candidate_children(vec, dist_pn)
         for child in candidates:
+            if stat:
+                stat.add_n_candidates_per_level(self.get_level(), 1)
             if isinstance(child, HS):
-                vec_pn = child.search_pn(vec, dist_pn)
+                vec_pn = child.search_pn(vec, dist_pn, stat)
                 if vec_pn is not None:
                     return vec_pn
+                if stat:
+                    stat.n_backtracks += 1
             else:
                 return child
         return None
