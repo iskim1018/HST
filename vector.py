@@ -13,11 +13,14 @@ class Vector(HSable):
     def get_centroid(self):
         return self.v
 
-    def get_new_centroid(self, vec: np.ndarray):
-        return np.mean([self.v, vec], axis=0)
+    def get_new_centroid(self, v: np.ndarray):
+        return np.mean([self.v, v], axis=0)
 
     def get_radius(self):
         return 0
+
+    def get_dist_max(self, v: np.ndarray):
+        return np.linalg.norm(self.v - v)
 
     def __str__(self):
         if detailed_str:

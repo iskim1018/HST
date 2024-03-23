@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Union, TYPE_CHECKING
 import numpy as np
 import pickle
 
@@ -14,16 +15,22 @@ class HST:
         self.n_max_child = n_max_child
         self.RHS = None
         self.vid_start = 1
+        self.hid_start = 1
 
-    def assign_vector(self, v: np.ndarray):
+    def alloc_vector(self, v: np.ndarray):
         vid = self.vid_start
         self.vid_start += 1
         return Vector(vid, v)
 
+    def alloc_hs(self, hs_parent: Union[HS, None], children: List[Union[HS, Vector]]):
+        hid = self.hid_start
+        self.hid_start += 1
+        return HS(hid, self, hs_parent, children)
+
     def insert(self, v: np.ndarray):
-        vec = self.assign_vector(v)
+        vec = self.alloc_vector(v)
         if self.RHS is None:
-            self.RHS = HS(self, None, [vec])
+            self.RHS = self.alloc_hs(None, [vec])
         else:
             self.RHS.insert(vec)
 

@@ -15,9 +15,11 @@ detailed_str = False
 class HS(HSable):
     children: List[Union[HS, Vector]]
 
-    def __init__(self, hst: HST, hs_parent: Union[HS, None], children: List[Union[HS, Vector]]):
+    def __init__(self, hid: int, hst: HST, hs_parent: Union[HS, None], children: List[Union[HS, Vector]]):
+        self.hid = hid
         self.centroid = 0
         self.radius = 0
+        self.dist_max = 0
         self.hst = hst
         self.hs_parent = hs_parent
         self.children = children
@@ -51,6 +53,10 @@ class HS(HSable):
         vecs.append(vec)
         return np.mean(vecs, axis=0)
 
+    def get_dist_max(self, v: np.ndarray):
+        dist = np.linalg.norm(self.centroid - v)
+        return dist + self.dist_max
+
     def _get_nearest_child_idx(self, vec: Vector):
         vecs = self._get_child_new_centroids(vec)
         return np.argmin(np.linalg.norm(vecs - vec.v, axis=1))
@@ -76,7 +82,7 @@ class HS(HSable):
             if isinstance(child, HS):
                 child.insert(vec)
             else:
-                hs_new = HS(self.hst, self, [child, vec])
+                hs_new = self.hst.alloc_hs(self, [child, vec])
                 self.children[idx] = hs_new
         else:
             self.children.append(vec)
@@ -91,7 +97,7 @@ class HS(HSable):
         if len(self.children) >= self.hst.n_max_child:
             idx = self._get_nearest_child_idx(vec)
             child = self.children[idx]
-            hs_new = HS(self.hst, self, [child, vec])
+            hs_new = self.hst.alloc_hs(self, [child, vec])
             if isinstance(child, HS):
                 child.hs_parent = hs_new
             self.children[idx] = hs_new
@@ -127,16 +133,24 @@ class HS(HSable):
         for child in self.children:
             self.hs_parent.reparent(self, child)
 
+    def _setup_dist_max(self):
+        dist_max = 0
+        for child in self.children:
+            dist_max_child = child.get_dist_max(self.centroid)
+            if dist_max_child > dist_max:
+                dist_max = dist_max_child
+        self.dist_max = dist_max
+
     def _setup_radius(self):
         centroids_child = self._get_child_centroids()
         radii_child = self._get_child_radii()
         self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
+        self._setup_dist_max()
 
     def setup(self):
         centroids_child = self._get_child_centroids()
-        radii_child = self._get_child_radii()
         self.centroid = np.mean(centroids_child, axis=0)
-        self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
+        self._setup_radius()
         self.try_to_reparent()
 
     def search_pn(self, vec: np.ndarray, dist_pn: float, stat: HSTStat = None):
@@ -241,4 +255,4 @@ class HS(HSable):
                     print(f"{indent} {child}")
 
     def __repr__(self):
-        return f"r:{self.radius:.3f}#{len(self.children)}"
+        return f"[{self.hid}]-{self.dist_max:.3f}-r:{self.radius:.3f}#{len(self.children)}"

@@ -14,3 +14,7 @@ class HSable(ABC):
     @abstractmethod
     def get_radius(self):
         pass
+
+    @abstractmethod
+    def get_dist_max(self, v: np.ndarray):
+        pass
