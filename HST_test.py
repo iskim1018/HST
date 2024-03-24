@@ -7,6 +7,7 @@ import numpy as np
 
 import HS
 import vector
+from dist import get_cosine_dist, get_euclidean_dist
 from HST import HST
 from hst_stat import HSTStat
 
@@ -21,7 +22,9 @@ query_pn_dist = None
 path_save = None
 path_load = None
 seed = None
+dist_func = get_euclidean_dist
 verbose = ""
+
 
 def _usage_hst_test():
     print("""\
@@ -36,6 +39,7 @@ Usage: HST_test.py [<options>]
    -s <path>: save HST
    -l <path>: load HST
    -S: setting seed for numpy random
+   -m: distance metric, cosine, euclidean(default)
    -v <option>: verbose output, options: stvV
         s: summary, t: tree, v: vector, V: vector data 
 """)
@@ -61,10 +65,10 @@ def _parse_query_str(a):
 
 
 def _parse_args():
-    global n_max_child, vec_dim, n_vectors, vec_range, query_mode, path_load, path_save, seed, verbose
+    global n_max_child, vec_dim, n_vectors, vec_range, query_mode, path_load, path_save, seed, dist_func, verbose
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "c:d:n:q:r:s:l:S:v:h")
+        opts, args = getopt.getopt(sys.argv[1:], "c:d:n:q:r:s:l:S:m:v:h")
     except getopt.GetoptError:
         logger.error("invalid option")
         _usage_hst_test()
@@ -88,6 +92,8 @@ def _parse_args():
             path_load = a
         elif o == '-S':
             seed = int(a)
+        elif o == '-m':
+            dist_func = get_cosine_dist if a == "cosine" else get_euclidean_dist
         elif o == '-v':
             verbose = a
             if ('v' or 'V') in a:
@@ -140,7 +146,7 @@ def run_hst_test():
         hst = HST.load(path_load)
         vec_dim = hst.n_dim
     else:
-        hst = HST(vec_dim, n_max_child)
+        hst = HST(vec_dim, n_max_child, dist_func)
     for i in range(n_vectors):
         v = np.random.uniform(vec_range[0], vec_range[1], vec_dim)
         if query_mode:

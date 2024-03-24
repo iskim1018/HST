@@ -39,8 +39,8 @@ class HS(HSable):
     def _get_child_radii(self):
         return list(map(lambda child: child.get_radius(), self.children))
 
-    def _get_child_new_centroids(self, vec: Vector):
-        return list(map(lambda child: child.get_new_centroid(vec.v), self.children))
+    def _get_child_new_centroids(self, v: np.ndarray):
+        return list(map(lambda child: child.get_new_centroid(v), self.children))
 
     def get_radius(self):
         return self.radius
@@ -54,20 +54,35 @@ class HS(HSable):
         return np.mean(vecs, axis=0)
 
     def get_dist_max(self, v: np.ndarray):
-        dist = np.linalg.norm(self.centroid - v)
+        dist = self.hst.dist_func(self.centroid, v)
         return dist + self.dist_max
 
     def _get_nearest_child_idx(self, vec: Vector):
-        vecs = self._get_child_new_centroids(vec)
-        return np.argmin(np.linalg.norm(vecs - vec.v, axis=1))
+        vecs = self._get_child_new_centroids(vec.v)
+        idx_min = None
+        dist_min = None
+        idx = 0
+        for v in vecs:
+            dist = self.hst.dist_func(v, vec.v)
+            if idx_min is None or dist < dist_min:
+                idx_min = idx
+                dist_min = dist
+            idx += 1
+        return idx_min
+
+    def _get_dists(self, vs, v):
+        dists = []
+        for vv in vs:
+            dists.append(self.hst.dist_func(vv, v))
+        return dists
 
     def _get_candidate_children(self, vec: np.ndarray, dist_pn: float):
         candidates = []
         vecs = self._get_child_centroids()
-        dists = np.linalg.norm(vecs - vec, axis=1)
+        dists = self._get_dists(vecs, vec)
         for child, dist_centroid in zip(self.children, dists):
             if isinstance(child, HS):
-                if child.radius >= dist_centroid or dist_centroid - child.radius < dist_pn:
+                if child.dist_max >= dist_centroid or dist_centroid - child.dist_max < dist_pn:
                     candidates.append((child, dist_centroid))
             else:
                 if dist_centroid < dist_pn:
@@ -89,8 +104,8 @@ class HS(HSable):
         self._setup_radius()
 
     def insert(self, vec: Vector):
-        dist = np.linalg.norm(self.centroid - vec.v)
-        if dist < self.radius:
+        dist = self.hst.dist_func(self.centroid, vec.v)
+        if dist < self.dist_max:
             self.add(vec)
             return
 
@@ -110,18 +125,18 @@ class HS(HSable):
         self.children.remove(child_removing)
         self._setup_radius()
 
-    def _get_nearest_candidate_hs(self, vec: np.ndarray):
-        vecs = self._get_child_new_centroids(vec)
-        dists = np.linalg.norm(vecs - vec.v, axis=1)
+    def _get_nearest_candidate_hs(self, v: np.ndarray):
+        vecs = self._get_child_new_centroids(v)
+        dists = self._get_dists(vecs, v)
         for idx, dist in sorted(enumerate(dists), key=lambda x: x[1]):
             child = self.children[idx]
-            if isinstance(child, HS) and child.radius <= dist:
+            if isinstance(child, HS) and child.dist_max >= dist:
                 return child
         return None
 
     def reparent(self, child_from, child_grand):
-        vec = child_grand.centroid if isinstance(child_grand, HS) else child_grand
-        child_nn = self._get_nearest_candidate_hs(vec)
+        v = child_grand.centroid if isinstance(child_grand, HS) else child_grand.v
+        child_nn = self._get_nearest_candidate_hs(v)
         if child_nn is None or child_from == child_nn:
             return
         child_from.remove(child_grand)
@@ -144,7 +159,7 @@ class HS(HSable):
     def _setup_radius(self):
         centroids_child = self._get_child_centroids()
         radii_child = self._get_child_radii()
-        self.radius = np.max(np.linalg.norm(np.array(centroids_child) - self.centroid) + radii_child)
+        self.radius = np.max(np.array(self._get_dists(centroids_child, self.centroid)) + radii_child)
         self._setup_dist_max()
 
     def setup(self):
@@ -180,7 +195,7 @@ class HS(HSable):
                     dist_min = dist_hs
                     vec_min = vec_min_hs
             else:
-                dist = np.linalg.norm(child - vec)
+                dist = self.hst.dist_func(child.v, vec)
                 if dist < dist_min:
                     vec_min = child
                     dist_min = dist
@@ -193,7 +208,7 @@ class HS(HSable):
                 vec_dists_nn_child = child._search_vecs_nn(v, dist)
                 vec_dists_nn += vec_dists_nn_child
             else:
-                dist_child = np.linalg.norm(child.v - v)
+                dist_child = self.hst.dist_func(child.v, v)
                 if dist_child < dist:
                     vec_dists_nn.append((child, dist_child))
         return vec_dists_nn
@@ -210,7 +225,7 @@ class HS(HSable):
             if isinstance(child, HS):
                 child._search_top_k_vecs(v, top_k, vec_dists)
             else:
-                dist_child = np.linalg.norm(child.v - v)
+                dist_child = self.hst.dist_func(child.v, v)
                 rank = 0
                 inserted = False
                 for vec_dist in vec_dists:

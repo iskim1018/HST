@@ -10,17 +10,18 @@ from hst_stat import HSTStat
 
 
 class HST:
-    def __init__(self, n_dim: int, n_max_child: int):
+    def __init__(self, n_dim: int, n_max_child: int, dist_func):
         self.n_dim = n_dim
         self.n_max_child = n_max_child
         self.RHS = None
         self.vid_start = 1
         self.hid_start = 1
+        self.dist_func = dist_func
 
     def alloc_vector(self, v: np.ndarray):
         vid = self.vid_start
         self.vid_start += 1
-        return Vector(vid, v)
+        return Vector(vid, self, v)
 
     def alloc_hs(self, hs_parent: Union[HS, None], children: List[Union[HS, Vector]]):
         hid = self.hid_start
@@ -34,9 +35,8 @@ class HST:
         else:
             self.RHS.insert(vec)
 
-    @staticmethod
-    def get_dist(vec1: np.ndarray, vec2: np.ndarray):
-        return np.linalg.norm(vec1 - vec2)
+    def get_dist(self, v1: np.ndarray, v2: np.ndarray):
+        return self.dist_func(v1, v2)
 
     def search_pn(self, vec: np.ndarray):
         return self.RHS.search(vec)
